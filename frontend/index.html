@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude Chat</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="chat">
+    <header class="chat-header">
+      <h1>Claude Chat</h1>
+      <p class="subtitle">Calculator + web search tools. No API key needed to use this.</p>
+    </header>
+
+    <div id="messages" class="messages" aria-live="polite"></div>
+
+    <form id="composer" class="composer">
+      <input
+        id="input"
+        type="text"
+        placeholder="Ask something…"
+        autocomplete="off"
+        maxlength="8000"
+        required
+      />
+      <button type="submit" id="send-btn">Send</button>
+    </form>
+  </main>
+
+  <!--
+    Point this at your deployed backend before hosting the frontend
+    somewhere separate from it (Netlify, GitHub Pages, etc). Defaults to
+    localhost for local dev.
+  -->
+  <script>
+    window.API_BASE = window.API_BASE || "http://localhost:8000";
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
