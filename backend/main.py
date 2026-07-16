@@ -8,9 +8,10 @@ Run locally:
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -44,26 +45,46 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+def _check_access_code(x_access_code: str | None) -> None:
+    if not config.ACCESS_CODE:
+        # Fail closed: an unset code means "not configured", not "open to all".
+        raise HTTPException(
+            status_code=500,
+            detail="Server is missing APP_ACCESS_CODE. Set it in the environment (see .env.example).",
+        )
+    if not x_access_code or not secrets.compare_digest(x_access_code, config.ACCESS_CODE):
+        raise HTTPException(status_code=401, detail="Invalid or missing access code.")
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request) -> ChatResponse:
-    if not config.ANTHROPIC_API_KEY:
-        # Fails loudly rather than silently proxying a request that will 401.
-        raise HTTPException(
-            status_code=500,
-            detail="Server is missing ANTHROPIC_API_KEY. Set it in the environment (see .env.example).",
-        )
-
+def chat(
+    req: ChatRequest,
+    request: Request,
+    x_access_code: str | None = Header(default=None),
+) -> ChatResponse:
+    # Rate limit before checking the access code, so failed/guessed codes
+    # count against the same per-IP budget as legitimate use — otherwise an
+    # attacker could brute-force the code with unlimited 401s.
     client_ip = request.client.host if request.client else "unknown"
     allowed, retry_after = rate_limiter.check(client_ip)
     if not allowed:
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded. Try again in {retry_after}s.",
+        )
+
+    _check_access_code(x_access_code)
+
+    if not config.ANTHROPIC_API_KEY:
+        # Fails loudly rather than silently proxying a request that will 401.
+        raise HTTPException(
+            status_code=500,
+            detail="Server is missing ANTHROPIC_API_KEY. Set it in the environment (see .env.example).",
         )
 
     if req.messages[-1].role != "user":

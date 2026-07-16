@@ -7,10 +7,26 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="chat">
+  <div id="gate" class="gate">
+    <form id="gate-form" class="gate-form">
+      <h1>Claude Chat</h1>
+      <p class="subtitle">Enter the access code you were given to use this app.</p>
+      <input
+        id="gate-input"
+        type="password"
+        placeholder="Access code"
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Unlock</button>
+      <p id="gate-error" class="gate-error" hidden></p>
+    </form>
+  </div>
+
+  <main class="chat" id="chat" hidden>
     <header class="chat-header">
       <h1>Claude Chat</h1>
-      <p class="subtitle">Calculator + web search tools. No API key needed to use this.</p>
+      <p class="subtitle">Calculator + web search tools.</p>
     </header>
 
     <div id="messages" class="messages" aria-live="polite"></div>
