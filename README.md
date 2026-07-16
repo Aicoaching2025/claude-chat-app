@@ -38,9 +38,20 @@ Dockerfile          Container build for the backend
 cd backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp ../.env.example ../.env   # then edit ../.env: set ANTHROPIC_API_KEY and APP_ACCESS_CODE
-uvicorn main:app --reload --port 8000
+cd ..
+cp .env.example .env   # then edit .env: set ANTHROPIC_API_KEY and APP_ACCESS_CODE
+python -m uvicorn backend.main:app --reload --port 8000
 ```
+
+Run the server as `backend.main:app` **from the repo root** (not from inside
+`backend/`) — `main.py` uses relative imports (`from . import config`) that
+only resolve when Python loads it as part of the `backend` package. Running
+plain `uvicorn main:app` from inside `backend/` will fail with
+`ImportError: attempted relative import with no known parent package`.
+`python -m uvicorn` (rather than the bare `uvicorn` command) also avoids a
+common issue where a shell with multiple Python environments active (e.g.
+Anaconda's `base` alongside this `.venv`) resolves `uvicorn` to the wrong
+installed copy.
 
 **Frontend** (any static file server works — the app is plain HTML/JS):
 
