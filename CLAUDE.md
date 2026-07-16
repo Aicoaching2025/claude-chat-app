@@ -107,6 +107,60 @@ depends on it — the shell prompt itself usually shows the current folder
 name at the end. `cd ..` first, confirm the prompt now ends in the repo
 root's name, then rerun.
 
+### 6. `[Errno 48] address already in use` when restarting the backend
+
+**Symptom:** after closing a terminal tab (instead of stopping the server
+running in it first) and later trying to start the backend again in a new
+tab, it failed immediately with an address-already-in-use error on port
+8000.
+
+**Cause:** closing a terminal tab directly doesn't necessarily stop the
+process that was running in it — it can keep running in the background,
+orphaned, still holding the port open, even though there's no visible
+terminal for it anymore. The port itself wasn't "used up"; a still-alive
+process was squatting on it.
+
+**Fix:** find and stop the orphaned process, then retry:
+```bash
+lsof -i :8000                # lists whatever's bound to the port, with its PID
+kill -9 <PID>                 # stop that specific process
+lsof -i :8000                 # confirm nothing's listed anymore
+python -m uvicorn backend.main:app --port 8000
+```
+General rule: **always stop a running dev server with Ctrl+C before closing
+its terminal tab or window.** Ports free up immediately and reliably when a
+process is stopped properly — they are not a limited resource that gets
+"used up," and there's no need to switch to a different port next time.
+The failure mode above only happens when the old process never actually
+stopped.
+
+### 7. Access-code gate and chat panel both visible at once (CSS bug)
+
+**Symptom:** after "unlocking" with the access code, both the access-code
+entry screen and the chat message box appeared on screen simultaneously,
+instead of the gate disappearing.
+
+**Cause:** a genuine bug in the frontend CSS, not a usage mistake. The gate
+element had `.gate { display: flex }` in the stylesheet, and browsers have
+a built-in default rule `[hidden] { display: none }`. Both rules have the
+same specificity, and when specificity ties, the site's own CSS (author
+styles) wins over the browser's built-in default — so setting the `hidden`
+attribute via JavaScript had no visible effect on that element. (A parallel
+element, the chat panel, had already been given an explicit fix for this
+same tie; the gate element was missed.)
+
+**Fix:** add an explicit override that wins the tie on purpose:
+```css
+#gate[hidden] {
+  display: none;
+}
+```
+General rule: whenever a `hidden` attribute is toggled via JavaScript to
+show/hide an element, and that element also has a CSS class setting its own
+`display` property, add a matching `#id[hidden] { display: none; }` rule
+for every such element — don't assume the browser's default `[hidden]`
+behavior will "just work" once a class-based `display` value is in play.
+
 ## Scary-looking output that's actually fine (not errors)
 
 - **`[notice] A new release of pip is available: X -> Y`** — informational
@@ -119,14 +173,22 @@ root's name, then rerun.
 
 ## The pattern underneath most of these
 
-Every real error above traces back to one of three things:
+Most of the real errors above trace back to one of four things:
 1. **Which Python/environment is actually active** (issues #1, #2)
 2. **Which directory the command is run from** (issues #3, #5)
-3. **Misreading expected behavior as a failure** (issue #4)
+3. **Misreading expected behavior as a failure** (issues #4, #6)
+4. **Something left running that shouldn't be** (issue #6)
 
-None of these are bugs in the sense of "code that's wrong" — they're
-environment/invocation mismatches, which is the overwhelmingly common
-category of "it doesn't work" problems in local Python dev. Checking `pwd`
-and confirming which Python `which python` / `python -c "import sys;
-print(sys.executable)"` resolves to are the two fastest ways to rule this
-category out before assuming the code itself is broken.
+Issues #1 through #6 aren't bugs in the sense of "code that's wrong" —
+they're environment/invocation mismatches, which is the overwhelmingly
+common category of "it doesn't work" problems in local Python dev.
+Checking `pwd`, confirming which Python `which python` / `python -c
+"import sys; print(sys.executable)"` resolves to, and checking `lsof -i
+:<port>` for orphaned processes are the fastest ways to rule this category
+out before assuming the code itself is broken.
+
+**Issue #7 is different** — that one was an actual bug in the shipped code
+(a CSS rule missing where a parallel one existed), not an environment
+mismatch. Worth keeping the two categories distinct when debugging: first
+rule out environment/invocation (fast, mechanical, checklist-able), and
+only then suspect the application code itself.
