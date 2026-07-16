@@ -55,6 +55,14 @@ body {
   padding: 1rem;
 }
 
+/* Same fix as #chat[hidden] above: .gate's `display: flex` ties in
+   specificity with the browser default `[hidden] { display: none }`, and
+   author styles win ties — without this, hiding the gate via JS
+   (gateEl.hidden = true) has no visual effect. */
+#gate[hidden] {
+  display: none;
+}
+
 .gate-form {
   width: 100%;
   max-width: 360px;
